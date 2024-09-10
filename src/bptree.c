@@ -8,7 +8,7 @@
 BPlusTreeNode* createNode(int isLeaf) {
     BPlusTreeNode *node = (BPlusTreeNode*)malloc(sizeof(BPlusTreeNode));
     node->isLeaf = isLeaf;
-    node->keys = (int*)malloc((DEGREE - 1) * sizeof(int));
+    node->keys = (float*)malloc((DEGREE - 1) * sizeof(float));
     node->children = (BPlusTreeNode**)malloc(DEGREE * sizeof(BPlusTreeNode*));
     node->numKeys = 0;
     node->next = NULL;
@@ -22,7 +22,7 @@ BPlusTree* createBPlusTree() {
     return tree;
 }
 
-void insert(BPlusTree *tree, int key, NBA_Record *record) {
+void insert(BPlusTree *tree, float key, NBA_Record *record) {
     BPlusTreeNode *root = tree->root;
 
     if (root->numKeys == DEGREE - 1) {
@@ -37,7 +37,7 @@ void insert(BPlusTree *tree, int key, NBA_Record *record) {
     }
 }
 
-void insertNonFull(BPlusTreeNode *node, int key, NBA_Record *record) {
+void insertNonFull(BPlusTreeNode *node, float key, NBA_Record *record) {
     int i = node->numKeys - 1;
 
     if (node->isLeaf) {
@@ -77,6 +77,9 @@ void splitChild(BPlusTreeNode *parent, int index, BPlusTreeNode *child) {
         }
     }
 
+    newNode->next = child->next;  
+    child->next = newNode;   
+
     child->numKeys = t - 1;
 
     for (int j = parent->numKeys; j >= index + 1; j--) {
@@ -97,7 +100,7 @@ void traverseNode(BPlusTreeNode *node) {
         if (!node->isLeaf) {
             traverseNode(node->children[i]);
         }
-        printf(" %d", node->keys[i]);
+        printf(" %f", node->keys[i]);
     }
 
     if (!node->isLeaf) {
@@ -111,8 +114,9 @@ void traverse(BPlusTree *tree) {
     }
 }
 
-void searchRange(BPlusTree *tree, int min, int max) {  
+void searchRange(BPlusTree *tree, float min, float max) {
     BPlusTreeNode *node = tree->root;
+
     while (!node->isLeaf) {
         int i = 0;
         while (i < node->numKeys && min > node->keys[i]) {
@@ -121,78 +125,39 @@ void searchRange(BPlusTree *tree, int min, int max) {
         node = node->children[i];
     }
 
+    int found = 0;
     while (node != NULL) {
         for (int i = 0; i < node->numKeys; i++) {
             if (node->keys[i] >= min && node->keys[i] <= max) {
-                printf("Found key: %d\n", node->keys[i]);
+                printf("%f ", node->keys[i]);
+                found = 1;
+            }
+            else if (node->keys[i] > max) {
+                return;
             }
         }
         node = node->next;
     }
-}
 
-void saveNodeToDisk(FILE *file, BPlusTreeNode *node) {
-    fwrite(&node->isLeaf, sizeof(int), 1, file);
-    fwrite(&node->numKeys, sizeof(int), 1, file);
-    fwrite(node->keys, sizeof(int), node->numKeys, file);
-
-    if (!node->isLeaf) {
-        for (int i = 0; i <= node->numKeys; i++) {
-            saveNodeToDisk(file, node->children[i]);
-        }
+    if (!found) {
+        printf("No keys found in the range [%f, %f].\n", min, max);
     }
-}
-
-void saveBPlusTreeToDisk(BPlusTree *tree, const char *filename) {
-    FILE *file = fopen(filename, "wb");
-    if (file == NULL) {
-        perror("Failed to open file for writing");
-        exit(1);
-    }
-
-    saveNodeToDisk(file, tree->root);
-    fclose(file);
-}
-
-BPlusTreeNode* loadNodeFromDisk(FILE *file) {
-    BPlusTreeNode *node = (BPlusTreeNode*)malloc(sizeof(BPlusTreeNode));
-    fread(&node->isLeaf, sizeof(int), 1, file);
-    fread(&node->numKeys, sizeof(int), 1, file);
-
-    node->keys = (int*)malloc((DEGREE - 1) * sizeof(int));
-    fread(node->keys, sizeof(int), node->numKeys, file);
-
-    if (!node->isLeaf) {
-        node->children = (BPlusTreeNode**)malloc(DEGREE * sizeof(BPlusTreeNode*));
-        for (int i = 0; i <= node->numKeys; i++) {
-            node->children[i] = loadNodeFromDisk(file);
-        }
-    }
-
-    return node;  
-}
-
-BPlusTree* loadBPlusTreeFromDisk(const char *filename) {
-    FILE *file = fopen(filename, "rb");
-    if (file == NULL) {
-        perror("Failed to open file for reading");
-        exit(1);
-    }
-
-    BPlusTree *tree = createBPlusTree();
-    tree->root = loadNodeFromDisk(file);
-    fclose(file);
-    return tree;
 }
 
 int countNodes(BPlusTreeNode *node) {
     if (node == NULL) return 0;
-    int count = 1;
-    for (int i = 0; i <= node->numKeys; i++) {
-        count += countNodes(node->children[i]);
+    int count = 1;  // Count the current node.
+    // Only traverse the children if this is not a leaf node.
+    if (!node->isLeaf) {
+        for (int i = 0; i <= node->numKeys; i++) {
+            if (node->children[i] != NULL) {
+                count += countNodes(node->children[i]);
+            }
+        }
     }
     return count;
 }
+
 
 int treeHeight(BPlusTreeNode *node) {
     if (node == NULL) return 0;
@@ -207,7 +172,7 @@ int treeHeight(BPlusTreeNode *node) {
 void printRootKeys(BPlusTree *tree) { 
     if (tree->root != NULL) {
         for (int i = 0; i < tree->root->numKeys; i++) {
-            printf("%d ", tree->root->keys[i]);
+            printf("%f ", tree->root->keys[i]);
         }
         printf("\n");
     }

@@ -50,14 +50,20 @@ int main() {
 
     free(records);
 
-    read_data_from_binary_file("nba_data.bin", &records, &num_records);
+    NBA_Record *records_v2 = (NBA_Record *)malloc(max_records * sizeof(NBA_Record));
 
-    // Print the 103rd record (index 102) to verify correctness
-    printNBARecord(&records[102]);
+    read_data_from_binary_file("nba_data.bin", &records_v2, &num_records);
+
+    // Print the 120rd record (index 119) to verify correctness
+    // printNBARecord(&records_v2[120]);
 
     BPlusTree *bptree = createBPlusTree();
+
+    // Print the size of BPlusTreeNode
+    printf("Size of a BPlusTreeNode: %lu bytes\n",sizeof(BPlusTreeNode));
+
     for (int i = 0; i < num_records; i++) {
-        insert(bptree, (int)(records[i].fg_pct_home * 1000), &records[i]);  
+        insert(bptree, records_v2[i].fg_pct_home, &records_v2[i]);  
     }
 
     printf("B+ Tree Statistics:\n");
@@ -69,11 +75,12 @@ int main() {
 
     printf("\n\nQuerying B+ Tree for FG_PCT_home between 0.5 and 0.8:\n");
     clock_t start = clock();
-    searchRange(bptree, 500, 800);  
+    searchRange(bptree, 0.500, 0.800);  
+    printf("\n");
     clock_t end = clock();
 
     printf("Query time: %lf seconds\n", ((double)(end - start)) / CLOCKS_PER_SEC);
 
-    free(records);
+    free(records_v2);
     return 0;
 }

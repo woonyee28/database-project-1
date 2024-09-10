@@ -3,10 +3,10 @@
 
 #include "storage.h"
 
-#define DEGREE 3  
+#define DEGREE 341
 
 typedef struct BPlusTreeNode {
-    int *keys;                
+    float *keys;                
     struct BPlusTreeNode **children;  
     struct BPlusTreeNode *next; 
     int numKeys;             
@@ -18,16 +18,12 @@ typedef struct BPlusTree {
 } BPlusTree;
 
 BPlusTree* createBPlusTree();
-void insert(BPlusTree *tree, int key, NBA_Record *record);
-void insertNonFull(BPlusTreeNode *node, int key, NBA_Record *record);
+void insert(BPlusTree *tree, float key, NBA_Record *record);
+void insertNonFull(BPlusTreeNode *node, float key, NBA_Record *record);
 void splitChild(BPlusTreeNode *parent, int index, BPlusTreeNode *child);
 void traverse(BPlusTree *tree);
 void traverseNode(BPlusTreeNode *node);
-void searchRange(BPlusTree *tree, int min, int max);
-void saveBPlusTreeToDisk(BPlusTree *tree, const char *filename);
-void saveNodeToDisk(FILE *file, BPlusTreeNode *node);
-BPlusTree* loadBPlusTreeFromDisk(const char *filename);
-BPlusTreeNode* loadNodeFromDisk(FILE *file);
+void searchRange(BPlusTree *tree, float min, float max);
 int countNodes(BPlusTreeNode *node);  
 int treeHeight(BPlusTreeNode *node);  
 void printRootKeys(BPlusTree *tree);  
