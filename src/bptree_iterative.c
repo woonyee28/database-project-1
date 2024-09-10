@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "bptree.h"
+#include "bptree_iterative.h"
 #include "storage.h"
 
 BPlusTreeNode* createNode(int isLeaf) {

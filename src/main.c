@@ -3,7 +3,7 @@
 #include <unistd.h>  
 #include <time.h>
 #include "storage.h"
-#include "bptree.h"
+#include "bptree_iterative.h"
 
 void printNBARecord(NBA_Record *record) {
     printf("Game Date: %s\n", record->game_date_est);
