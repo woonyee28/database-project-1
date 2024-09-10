@@ -13,7 +13,8 @@ gcc src/main.c src/storage.c src/bptree_iterative.c -I include -o nba_storage
 ./nba_storage
 ```
 
-Extra note from Woon Yee:
+Extra note from Woon Yee:   
+   
 My operating system is `Linux` and the first few lines in the `main()` function is linux-specific, that is to find my page size for my laptop.
 
 Linux-specific portion:
