@@ -76,12 +76,16 @@ int main() {
     printf("4. Content of the root node: ");
     printRootKeys(bptree);  
 
-    printf("\n---------------------------------Task 3---------------------------------\n");
+    printf("\n---------------------------------Task 3 (Iterative Method) ---------------------------------\n");
 
     printf("\nQuerying B+ Tree for FG_PCT_home between 0.5 and 0.8:\n");
 
     searchRange(bptree, 0.500, 0.800);  
     printf("\n");
+
+    printf("\nBrute Force Linear Scan Method: \n");
+
+    bruteForceScan(records_v2, num_records, 0.500, 0.800, block_size);
 
     free(records_v2);
     return 0;

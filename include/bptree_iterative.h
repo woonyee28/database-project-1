@@ -6,16 +6,18 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <time.h>
+#include <math.h> 
 
 // N is the number of keys in a BPlusTreeNode
 #define N 340
 
 typedef struct BPlusTreeNode {
-    float *keys;                
+    float *keys;   
+    void **data;                 
     struct BPlusTreeNode **children;  
     struct BPlusTreeNode *next; 
     int numKeys;             
-    bool isLeaf;            
+    bool isLeaf;        
 } BPlusTreeNode;
 
 typedef struct BPlusTree {
@@ -32,5 +34,6 @@ void searchRange(BPlusTree *tree, float min, float max);
 int countNodes(BPlusTreeNode *node);  
 int treeHeight(BPlusTreeNode *node);  
 void printRootKeys(BPlusTree *tree);  
+void bruteForceScan(NBA_Record *records, int num_records, float min, float max, int block_size);
 
 #endif

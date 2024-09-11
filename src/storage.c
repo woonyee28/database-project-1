@@ -13,6 +13,7 @@ void read_data_from_file(const char *filename, NBA_Record *records, int *num_rec
     fgets(line, sizeof(line), file);  
 
     int i = 0;
+    int record_count_in_range = 0; 
     while (fgets(line, sizeof(line), file)) {
         sscanf(line, "%10s %d %d %f %f %f %hd %hd %hd",
                records[i].game_date_est,
@@ -24,9 +25,13 @@ void read_data_from_file(const char *filename, NBA_Record *records, int *num_rec
                &records[i].ast_home,
                &records[i].reb_home,
                &records[i].home_team_wins);
+        if (records[i].fg_pct_home >= 0.500 && records[i].fg_pct_home <= 0.800) {
+            record_count_in_range++;
+        }
         i++;
     }
     *num_records = i;
+    // printf("Number of records within the range [0.5000, 0.800]: %d\n", record_count_in_range);
     fclose(file);
 }
 
