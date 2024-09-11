@@ -1,7 +1,7 @@
 To Do - 11 September:
 1. Iterative Insert - Brute Force Linear Scan ==> Woon Yee
-2. Bulk Loading Method ==> (Whoever likes coding) x2
-3. Create the framework for report ==> (Whoever doesnt like coding) x2
+2. Bulk Loading Method ==> (Whoever likes coding) x2 yichen alex
+3. Create the framework for report ==> (Whoever doesnt like coding) x2 - ming ru, andrew
 
 Next Meeting:
 18 September - after SC3020 Tutorial
