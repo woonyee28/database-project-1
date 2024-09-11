@@ -9,7 +9,6 @@ void read_data_from_file(const char *filename, NBA_Record *records, int *num_rec
         perror("Unable to open file");
         exit(EXIT_FAILURE);
     }
-
     char line[256];
     fgets(line, sizeof(line), file);  
 
@@ -25,12 +24,9 @@ void read_data_from_file(const char *filename, NBA_Record *records, int *num_rec
                &records[i].ast_home,
                &records[i].reb_home,
                &records[i].home_team_wins);
-
-
         i++;
     }
     *num_records = i;
-
     fclose(file);
 }
 
@@ -40,30 +36,31 @@ void store_data_to_disk(NBA_Record *records, int num_records, const char *filena
         perror("Unable to open file");
         exit(EXIT_FAILURE);
     }
-
     int records_per_block = block_size / sizeof(NBA_Record);
     Block *block = (Block *)malloc(block_size);
-
     for (int i = 0; i < num_records; i += records_per_block) {
-        int current_block_size = (i + records_per_block > num_records) ? (num_records - i) * sizeof(NBA_Record) : block_size;
-        block->record_count = current_block_size / sizeof(NBA_Record);
+        int records_in_current_block = (i + records_per_block > num_records) ? (num_records - i) : records_per_block;
+        block->record_count = records_in_current_block;
 
-        memcpy(block->records, &records[i], block->record_count * sizeof(NBA_Record));
+        memcpy(block->records, &records[i], records_in_current_block * sizeof(NBA_Record));
+
+        int remaining_space = block_size - (sizeof(int) + records_in_current_block * sizeof(NBA_Record));
+        if (remaining_space > 0) {
+            memset(((char *)block->records) + records_in_current_block * sizeof(NBA_Record), 0, remaining_space);
+        }
+
         fwrite(block, 1, block_size, file);
     }
-
     free(block);
     fclose(file);
 }
 
-void read_data_from_binary_file(const char *filename, NBA_Record **records, int *num_records) {
+void read_data_from_binary_file(const char *filename, NBA_Record **records, int *num_records, int block_size) {
     FILE *file = fopen(filename, "rb");
     if (!file) {
         perror("Unable to open binary file");
         exit(EXIT_FAILURE);
     }
-
-    int block_size = 4096;  
     int total_records = 0;
     Block *block = (Block *)malloc(block_size);
     NBA_Record *temp_records = NULL;

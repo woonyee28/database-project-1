@@ -26,7 +26,7 @@ typedef struct {
 
 void read_data_from_file(const char *filename, NBA_Record *records, int *num_records);
 void store_data_to_disk(NBA_Record *records, int num_records, const char *filename, int block_size);
-void read_data_from_binary_file(const char *filename, NBA_Record **records, int *num_records);
+void read_data_from_binary_file(const char *filename, NBA_Record **records, int *num_records, int block_size);
 void printNBARecord(NBA_Record *record);
 
 #endif 

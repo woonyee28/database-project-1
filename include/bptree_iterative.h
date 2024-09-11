@@ -2,15 +2,19 @@
 #define BPTREE_ITERATIVE_H
 
 #include "storage.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
 
-#define DEGREE 341
+// N is the number of keys in a BPlusTreeNode
+#define N 340
 
 typedef struct BPlusTreeNode {
     float *keys;                
     struct BPlusTreeNode **children;  
     struct BPlusTreeNode *next; 
     int numKeys;             
-    int isLeaf;            
+    bool isLeaf;            
 } BPlusTreeNode;
 
 typedef struct BPlusTree {

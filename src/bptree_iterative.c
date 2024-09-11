@@ -1,15 +1,13 @@
 // bptree.c
 
-#include <stdio.h>
-#include <stdlib.h>
 #include "bptree_iterative.h"
 #include "storage.h"
 
-BPlusTreeNode* createNode(int isLeaf) {
+BPlusTreeNode* createNode(bool isLeaf) {
     BPlusTreeNode *node = (BPlusTreeNode*)malloc(sizeof(BPlusTreeNode));
     node->isLeaf = isLeaf;
-    node->keys = (float*)malloc((DEGREE - 1) * sizeof(float));
-    node->children = (BPlusTreeNode**)malloc(DEGREE * sizeof(BPlusTreeNode*));
+    node->keys = (float*)malloc((N) * sizeof(float));
+    node->children = (BPlusTreeNode**)malloc( (N+1) * sizeof(BPlusTreeNode*));
     node->numKeys = 0;
     node->next = NULL;
     return node;
@@ -25,7 +23,7 @@ BPlusTree* createBPlusTree() {
 void insert(BPlusTree *tree, float key, NBA_Record *record) {
     BPlusTreeNode *root = tree->root;
 
-    if (root->numKeys == DEGREE - 1) {
+    if (root->numKeys == N) {
         BPlusTreeNode *newRoot = createNode(0);
         newRoot->children[0] = root;
         splitChild(newRoot, 0, root);
@@ -52,7 +50,7 @@ void insertNonFull(BPlusTreeNode *node, float key, NBA_Record *record) {
             i--;
         }
         i++;
-        if (node->children[i]->numKeys == DEGREE - 1) {
+        if (node->children[i]->numKeys == N) {
             splitChild(node, i, node->children[i]);
             if (node->keys[i] < key) {
                 i++;
@@ -63,7 +61,7 @@ void insertNonFull(BPlusTreeNode *node, float key, NBA_Record *record) {
 }
 
 void splitChild(BPlusTreeNode *parent, int index, BPlusTreeNode *child) {
-    int t = DEGREE / 2;
+    int t = (N+1) / 2;
     BPlusTreeNode *newNode = createNode(child->isLeaf);
     newNode->numKeys = t - 1;
 

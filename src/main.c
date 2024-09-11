@@ -52,10 +52,10 @@ int main() {
 
     NBA_Record *records_v2 = (NBA_Record *)malloc(max_records * sizeof(NBA_Record));
 
-    read_data_from_binary_file("nba_data.bin", &records_v2, &num_records);
+    read_data_from_binary_file("nba_data.bin", &records_v2, &num_records, block_size);
 
     // Print the 120rd record (index 119) to verify correctness
-    // printNBARecord(&records_v2[120]);
+    printNBARecord(&records_v2[120]);
 
     BPlusTree *bptree = createBPlusTree();
 
@@ -67,7 +67,7 @@ int main() {
     }
 
     printf("B+ Tree Statistics:\n");
-    printf("1. Degree of B+ Tree: %d\n", DEGREE);
+    printf("1. N of B+ Tree: %d\n", N);
     printf("2. Number of nodes: %d\n", countNodes(bptree->root)); 
     printf("3. Number of levels: %d\n", treeHeight(bptree->root)); 
     printf("4. Content of the root node: ");
