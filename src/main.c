@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>  
-#include <time.h>
 #include "storage.h"
 #include "bptree_iterative.h"
 
@@ -43,6 +42,8 @@ int main() {
     int records_per_block = block_size / record_size;
     int num_blocks = (num_records + records_per_block - 1) / records_per_block;
 
+    printf("\n---------------------------------Task 1---------------------------------\n");
+
     printf("Size of a record: %d bytes\n", record_size);
     printf("Number of records: %d\n", num_records);
     printf("Records per block: %d\n", records_per_block);
@@ -55,31 +56,32 @@ int main() {
     read_data_from_binary_file("nba_data.bin", &records_v2, &num_records, block_size);
 
     // Print the 120rd record (index 119) to verify correctness
-    printNBARecord(&records_v2[120]);
+    // printNBARecord(&records_v2[120]);
+
+    printf("\n---------------------------------Task 2---------------------------------\n");
 
     BPlusTree *bptree = createBPlusTree();
 
     // Print the size of BPlusTreeNode
-    printf("Size of a BPlusTreeNode: %lu bytes\n",sizeof(BPlusTreeNode));
+    printf("\n\nSize of a BPlusTreeNode: %lu bytes\n",sizeof(BPlusTreeNode));
 
     for (int i = 0; i < num_records; i++) {
         insert(bptree, records_v2[i].fg_pct_home, &records_v2[i]);  
     }
 
-    printf("B+ Tree Statistics:\n");
+    printf("\nB+ Tree Statistics:\n");
     printf("1. N of B+ Tree: %d\n", N);
     printf("2. Number of nodes: %d\n", countNodes(bptree->root)); 
     printf("3. Number of levels: %d\n", treeHeight(bptree->root)); 
     printf("4. Content of the root node: ");
     printRootKeys(bptree);  
 
-    printf("\n\nQuerying B+ Tree for FG_PCT_home between 0.5 and 0.8:\n");
-    clock_t start = clock();
+    printf("\n---------------------------------Task 3---------------------------------\n");
+
+    printf("\nQuerying B+ Tree for FG_PCT_home between 0.5 and 0.8:\n");
+
     searchRange(bptree, 0.500, 0.800);  
     printf("\n");
-    clock_t end = clock();
-
-    printf("Query time: %lf seconds\n", ((double)(end - start)) / CLOCKS_PER_SEC);
 
     free(records_v2);
     return 0;

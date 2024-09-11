@@ -3,6 +3,7 @@
 #include "bptree_iterative.h"
 #include "storage.h"
 
+
 BPlusTreeNode* createNode(bool isLeaf) {
     BPlusTreeNode *node = (BPlusTreeNode*)malloc(sizeof(BPlusTreeNode));
     node->isLeaf = isLeaf;
@@ -114,8 +115,16 @@ void traverse(BPlusTree *tree) {
 
 void searchRange(BPlusTree *tree, float min, float max) {
     BPlusTreeNode *node = tree->root;
+    int index_node_count = 0;  
+    int data_block_count = 0;  
+    int record_count = 0;      
+    float fg3_pct_sum = 0.0;   
+    clock_t start, end; 
+
+    start = clock();
 
     while (!node->isLeaf) {
+        index_node_count++;
         int i = 0;
         while (i < node->numKeys && min > node->keys[i]) {
             i++;
@@ -123,29 +132,39 @@ void searchRange(BPlusTree *tree, float min, float max) {
         node = node->children[i];
     }
 
-    int found = 0;
     while (node != NULL) {
+        data_block_count++;
         for (int i = 0; i < node->numKeys; i++) {
             if (node->keys[i] >= min && node->keys[i] <= max) {
-                printf("%f ", node->keys[i]);
-                found = 1;
+                fg3_pct_sum += node->keys[i];
+                record_count++; 
             }
             else if (node->keys[i] > max) {
-                return;
+                break;
             }
         }
         node = node->next;
     }
+    end = clock();
 
-    if (!found) {
-        printf("No keys found in the range [%f, %f].\n", min, max);
+    printf("Number of index nodes accessed: %d\n", index_node_count);
+    printf("Number of data blocks accessed: %d\n", data_block_count);
+    
+    if (record_count > 0) {
+        float fg3_pct_avg = fg3_pct_sum / record_count;  
+        printf("Average FG3_PCT_home of records: %.3f\n", fg3_pct_avg);
+    } else {
+        printf("No records found in the range.\n");
     }
+
+    double time_taken = ((double)(end - start)) / CLOCKS_PER_SEC;
+    printf("Query time: %lf seconds\n", time_taken);
 }
 
 int countNodes(BPlusTreeNode *node) {
     if (node == NULL) return 0;
-    int count = 1;  // Count the current node.
-    // Only traverse the children if this is not a leaf node.
+    int count = 1;  
+    
     if (!node->isLeaf) {
         for (int i = 0; i <= node->numKeys; i++) {
             if (node->children[i] != NULL) {
