@@ -11,6 +11,8 @@
 3. To explain `**children` is pointing to a list of children, if we use `*children`, it is only pointing to a children. (A node should have pointers pointing to multiple children)
 4. Iterative Done, cross check iterative result with bulk loading result.
 
+### Question to ask prof:
+1. The B+ tree must point to the datablock in disk - Which means we load the NBA records from disk to memory, then we connect it with B+ tree?
 
 ### Others
 To run the program:
