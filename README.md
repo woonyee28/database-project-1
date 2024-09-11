@@ -1,10 +1,15 @@
 To Do - 11 September:
-1. Iterative Insert - Brute Force Linear Scan ==> Woon Yee
+1. Iterative Insert - Brute Force Linear Scan ==> Woon Yee (Done)
 2. Bulk Loading Method ==> (Whoever likes coding) x2 yichen alex
 3. Create the framework for report ==> (Whoever doesnt like coding) x2 - ming ru, andrew
 
 Next Meeting:
 18 September - after SC3020 Tutorial
+
+## 18 September Meeting Update  
+1. Use `bool` for isLeaf - Done (WY)
+2. add `** data` to point to the NBA Records - Done (WY)
+3. To explain `**children` is pointing to a list of children, if we use `*children`, it is only pointing to a children. (A node should have pointers pointing to multiple children)
 
 To run the program:
 ```

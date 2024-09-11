@@ -80,35 +80,28 @@ void splitChild(BPlusTreeNode *parent, int index, BPlusTreeNode *child) {
     }
 
     if (child->isLeaf) {
-        // Move the data pointers to the new leaf node
         for (int j = 0; j < newNode->numKeys; j++) {
             newNode->data[j] = child->data[j + N - t];
         }
-        // Adjust the linked list of leaves
         newNode->next = child->next;
         child->next = newNode;
     } else {
-        // Move the child pointers for internal nodes
         for (int j = 0; j <= newNode->numKeys; j++) {
             newNode->children[j] = child->children[j + N - t];
         }
     }
 
-    // Shift parent's children to make room for the new node
     for (int j = parent->numKeys; j >= index + 1; j--) {
         parent->children[j + 1] = parent->children[j];
     }
     parent->children[index + 1] = newNode;
 
-    // Shift parent's keys to make room for the middle key
     for (int j = parent->numKeys - 1; j >= index; j--) {
         parent->keys[j + 1] = parent->keys[j];
     }
 
-    // Copy the median key from child to the parent
-    parent->keys[index] = newNode->keys[0];  // Use the middle key in child
+    parent->keys[index] = newNode->keys[0]; 
 
-    // Increase the number of keys in the parent
     parent->numKeys++;
 }
 
