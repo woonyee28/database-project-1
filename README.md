@@ -1,3 +1,10 @@
+Bulk insertion -- Bottom up approach. Fill the leaf layer first, only split node when max key reached. On last node, if number of keys < Min_Key, this node will take from the previous node. Recursively Construct the next layer based on the leaf layer, until the root layer.
+run code:
+```
+gcc -Iinclude src/main.c src/storage.c src/bptree_bulk_loading.c src/bptree_iterative.c -o bulk
+./bulk
+```
+
 ## To Do - 11 September:
 1. Iterative Insert - Brute Force Linear Scan ==> Woon Yee `Done`
 2. Bulk Loading Method ==> (Whoever likes coding) x2 yichen alex
