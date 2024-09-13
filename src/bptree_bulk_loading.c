@@ -41,61 +41,88 @@ void read_data_from_file_with_sorting(const char *filename, NBA_Record *records,
     //printf("Number of records within the range [0.500, 0.800]: %d\n", record_count_in_range);
     fclose(file);
 }
+void balanceLeafNodes(BPlusTreeNode **leaves, int leafCount, int minKeys, int maxKeys) {
+    for (int i = 0; i < leafCount - 1; i++) {
+        // Check if the next leaf needs keys
+        while (leaves[i]->numKeys > minKeys && leaves[i + 1]->numKeys < minKeys) {
+            // Transfer a key from the current node to the next
+            float keyToTransfer = leaves[i]->keys[leaves[i]->numKeys - 1];
+            void* dataToTransfer = leaves[i]->data[leaves[i]->numKeys - 1];
+            leaves[i]->numKeys--;
+
+            // Find the insertion point in the next leaf
+            int insertionPoint = leaves[i + 1]->numKeys;
+            while (insertionPoint > 0 && leaves[i + 1]->keys[insertionPoint - 1] > keyToTransfer) {
+                leaves[i + 1]->keys[insertionPoint] = leaves[i + 1]->keys[insertionPoint - 1];
+                leaves[i + 1]->data[insertionPoint] = leaves[i + 1]->data[insertionPoint - 1];
+                insertionPoint--;
+            }
+
+            // Insert the key and data in the correct position
+            leaves[i + 1]->keys[insertionPoint] = keyToTransfer;
+            leaves[i + 1]->data[insertionPoint] = dataToTransfer;
+            leaves[i + 1]->numKeys++;
+        }
+    }
+}
 void adjustInternalNodes(BPlusTreeNode **nodes, int nodeCount, int minKeys, int maxKeys) {
+    printf("\n--- Starting adjustInternalNodes ---\n");
+
+    // Loop through internal nodes and adjust them
     for (int i = nodeCount - 1; i > 0; i--) {
         BPlusTreeNode *current = nodes[i];
         BPlusTreeNode *previous = nodes[i - 1];
-
-        // Redistribute keys to maintain minimum keys constraint
+        // Redistribute keys and children between nodes
         while (current->numKeys < minKeys && previous->numKeys > minKeys) {
-            // Shift all keys in current node right
-            memmove(&current->keys[1], &current->keys[0], current->numKeys * sizeof(*(current->keys)));
-            // Move the last key of the previous node to the first key of the current node
-            current->keys[0] = previous->keys[previous->numKeys - 1];
 
-            // Shift all child pointers in current node right
-            memmove(&current->children[1], &current->children[0], (current->numKeys + 1) * sizeof(*(current->children)));
-            // Move the last child of the previous node to the first child of the current node
+            // Transfer the smallest key of the **next child** to the current node
+            memmove(&current->keys[1], &current->keys[0], current->numKeys * sizeof(float));
+            memmove(&current->children[1], &current->children[0], (current->numKeys + 1) * sizeof(BPlusTreeNode*));
+
+            // The correct key for the internal node should reflect the smallest key of the next child
+            current->keys[0] = current->children[1]->keys[0];
             current->children[0] = previous->children[previous->numKeys];
-
             current->numKeys++;
+
             previous->numKeys--;
 
-            // Update the last key of the previous node to be the smallest key of its new last child
+            // Update the parent key to be the smallest key of the next child in the previous node
             if (previous->numKeys > 0) {
                 previous->keys[previous->numKeys - 1] = previous->children[previous->numKeys]->keys[0];
             }
         }
 
-        // If previous node becomes underfull, merge it with current
+        // If the previous node becomes underfull, merge it with the current node
         if (previous->numKeys < minKeys) {
             // Transfer all keys and children from current to previous
-            memcpy(&previous->keys[previous->numKeys], &current->keys[0], current->numKeys * sizeof(*(current->keys)));
-            memcpy(&previous->children[previous->numKeys], &current->children[0], (current->numKeys + 1) * sizeof(*(current->children)));
+            memcpy(&previous->keys[previous->numKeys], &current->keys[0], current->numKeys * sizeof(float));
+            memcpy(&previous->children[previous->numKeys + 1], &current->children[0], (current->numKeys + 1) * sizeof(BPlusTreeNode*));
 
             previous->numKeys += current->numKeys;
 
             // Adjust the links
-            if (current->next) {
-                previous->next = current->next;
-            } else {
-                previous->next = NULL;
-            }
-
+            previous->next = current->next;
             // Free the current node
             free(current->keys);
             free(current->data);
             free(current->children);
             free(current);
 
-            // Decrease the count of nodes
             nodeCount--;
+            i--;  // Decrement i to continue checking the current node
         }
     }
 
-    // In case only one node is left, it becomes the root
+    // Final pass to update all parent keys
+    for (int j = 0; j < nodeCount - 1; j++) {
+        if (nodes[j + 1]->children[0]) {
+            nodes[j]->keys[nodes[j]->numKeys - 1] = nodes[j + 1]->children[0]->keys[0]; // Set the key to the smallest key of the i+1th child
+        }
+    }
+
+    // Ensure the root node points correctly if only one node remains
     if (nodeCount == 1) {
-        nodes[0]->next = NULL; // There's no next node at the root level
+        nodes[0]->next = NULL;
     }
 }
 void bulkLoadBPlusTree(BPlusTree* tree, float* keys, void** data, int numRecords, int MAX_KEYS) {
@@ -128,6 +155,7 @@ void bulkLoadBPlusTree(BPlusTree* tree, float* keys, void** data, int numRecords
         leaves[leafIndex++] = leaf;
     }
 
+    balanceLeafNodes(leaves, leafIndex, (MAX_KEYS+1)/2, MAX_KEYS);
     // Link the leaves
     for (int j = 0; j < leafIndex - 1; j++) {
         leaves[j]->next = leaves[j + 1];
@@ -136,24 +164,30 @@ void bulkLoadBPlusTree(BPlusTree* tree, float* keys, void** data, int numRecords
     // Create upper levels
     while (leafIndex > 1) {
         int parentIndex = 0;
-        int numParents = (leafIndex + MAX_KEYS - 1) / MAX_KEYS;
-        BPlusTreeNode **parents = (BPlusTreeNode**) malloc(numParents * sizeof(BPlusTreeNode*));
+    int numParents = (leafIndex + MAX_KEYS - 1) / MAX_KEYS;
+    BPlusTreeNode **parents = (BPlusTreeNode**) malloc(numParents * sizeof(BPlusTreeNode*));
 
-        for (int i = 0; i < leafIndex; i += MAX_KEYS) {
-            BPlusTreeNode* parent = createNode1(false, MAX_KEYS);
-            int childCount = 0;
-            for (int k = i; k <= i + MAX_KEYS && k < leafIndex; k++) {
-                parent->children[childCount] = leaves[k];
-                if (childCount > 0) {
-                    parent->keys[childCount - 1] = leaves[k]->keys[0]; // Promote the first key of the right child
-                }
-                childCount++;
-            }
-            parent->numKeys = childCount - 1;
-            parents[parentIndex++] = parent;
+    for (int i = 0; i < leafIndex; i += MAX_KEYS) {
+        BPlusTreeNode* parent = createNode1(false, MAX_KEYS);
+        // Ensure the first child is linked correctly
+        parent->children[0] = leaves[i];
+
+        // Start k from i to group MAX_KEYS children under one parent
+        int k;
+        for (k = i; k < i + MAX_KEYS - 1 && k + 1 < leafIndex; k++) {
+            // Promote the first key of the next child node
+            parent->keys[parent->numKeys] = leaves[k + 1]->keys[0];
+            parent->children[parent->numKeys + 1] = leaves[k + 1];
+            parent->numKeys++;
         }
+        // Special handling for the last group if it does not fill up to MAX_KEYS
+        if (k < leafIndex) {
+            parent->children[parent->numKeys + 1] = leaves[k];
+        }
+        parents[parentIndex++] = parent;
+    }
 
-        adjustInternalNodes(parents, parentIndex, (MAX_KEYS + 1) / 2, MAX_KEYS); // Adjust the nodes to ensure all are balanced except maybe the last one
+        adjustInternalNodes(parents, parentIndex, (MAX_KEYS) / 2, MAX_KEYS);
 
         free(leaves);
         leaves = parents;

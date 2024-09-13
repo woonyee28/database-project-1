@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
+
 #include <windows.h>  
 #include "D:/Download/SC3020/include/storage.h"
 #include "D:/Download/SC3020/include/bptree_iterative.h"
@@ -60,13 +62,13 @@ void printTreeDetailed(BPlusTreeNode *node, int level) {
     if (node->isLeaf) {
         // Print only the first and last key for leaf nodes
         if (node->numKeys > 0) {
-            printf("Level %d, Leaf Keys: %.2f ... %.2f\n", level, node->keys[0], node->keys[node->numKeys - 1]);
+            printf("Level %d, Leaf Keys: %.3f ... %.3f\n", level, node->keys[0], node->keys[node->numKeys - 1]);
         }
     } else {
         // For internal nodes, print all keys
         printf("Level %d, Internal Keys:", level);
         for (int i = 0; i < node->numKeys; i++) {
-            printf(" %.2f", node->keys[i]);
+            printf(" %.3f", node->keys[i]);
         }
         printf("\n");
         // Recursively print child nodes
