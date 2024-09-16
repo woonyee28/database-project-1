@@ -4,9 +4,9 @@
 
 
 #include <windows.h>  
-#include "D:/Download/SC3020/include/storage.h"
-#include "D:/Download/SC3020/include/bptree_iterative.h"
-#include "D:/Download/SC3020/include/bptree_bulk_loading.h"
+#include "storage.h"
+#include "bptree_iterative.h"
+#include "bptree_bulk_loading.h"
 
 void printNBARecord(NBA_Record *record) {
     printf("Game Date: %s\n", record->game_date_est);
