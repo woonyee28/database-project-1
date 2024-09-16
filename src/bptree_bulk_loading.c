@@ -1,6 +1,6 @@
-#include "D:/Download/SC3020/include/storage.h"
-#include "D:/Download/SC3020/include/bptree_iterative.h"
-#include "D:/Download/SC3020/include/bptree_bulk_loading.h"
+#include "storage.h"
+#include "bptree_iterative.h"
+#include "bptree_bulk_loading.h"
 int compare_records(const void *a, const void *b) {
     const NBA_Record *rec_a = (const NBA_Record *)a;
     const NBA_Record *rec_b = (const NBA_Record *)b;
