@@ -148,7 +148,9 @@ void bulkLoadBPlusTree(BPlusTree* tree, float* keys, void** data, int numRecords
     }
 
         adjustInternalNodes(parents, parentIndex, (MAX_KEYS) / 2, MAX_KEYS);
-
+        for (int j = 0; j < parentIndex - 1; j++) {
+            parents[j]->next = parents[j + 1];
+        }
         free(leaves);
         leaves = parents;
         leafIndex = parentIndex;
@@ -197,21 +199,30 @@ void serializeNode(FILE *file, BPlusTreeNode *node) {
     fwrite(node->keys, sizeof(float), node->numKeys, file);
 
     if (node->isLeaf) {
-        // Serialize pointers to the records (e.g., memory addresses or file offsets)
+        // Serialize pointers to the records (assuming we're storing pointers or offsets)
         for (int i = 0; i < node->numKeys; i++) {
-            fwrite(&node->data[i], sizeof(void*), 1, file);  // Write pointers (or some reference)
+            fwrite(&node->data[i], sizeof(void*), 1, file);  // Write pointer to the record
         }
 
-        // Serialize the 'next' pointer (if it exists)
+        // Serialize the 'next' pointer for leaf nodes
         bool hasNext = node->next != NULL;
         fwrite(&hasNext, sizeof(bool), 1, file);
         if (hasNext) {
             serializeNode(file, node->next);  // Recursively serialize the next leaf node
         }
     } else {
-        // For internal nodes, recursively serialize the children
+        // For internal nodes, serialize the 'next' pointer
+        bool hasNext = node->next != NULL;
+        fwrite(&hasNext, sizeof(bool), 1, file);
+
+        // Recursively serialize the children of the internal node
         for (int i = 0; i <= node->numKeys; i++) {
             serializeNode(file, node->children[i]);
+        }
+
+        // Recursively serialize the 'next' internal node
+        if (hasNext) {
+            serializeNode(file, node->next);  // Recursively serialize the next internal node
         }
     }
 }
@@ -241,11 +252,11 @@ BPlusTreeNode* deserializeNode(FILE *file, int maxKeys) {
     fread(node->keys, sizeof(float), node->numKeys, file);
 
     if (node->isLeaf) {
-        // Allocate memory for pointers to the records (not the actual records)
+        // Read pointers to the records (or offsets)
         node->data = malloc(maxKeys * sizeof(void*));
-        fread(node->data, sizeof(void*), node->numKeys, file);  // Read the pointers (or references)
+        fread(node->data, sizeof(void*), node->numKeys, file);  // Read pointers to records
 
-        // Deserialize the 'next' pointer
+        // Deserialize the 'next' pointer for leaf nodes
         bool hasNext;
         fread(&hasNext, sizeof(bool), 1, file);
         if (hasNext) {
@@ -254,10 +265,23 @@ BPlusTreeNode* deserializeNode(FILE *file, int maxKeys) {
             node->next = NULL;  // No next leaf node
         }
     } else {
-        // For internal nodes, recursively deserialize the children
+        // Allocate memory for children
         node->children = (BPlusTreeNode**) malloc((maxKeys + 1) * sizeof(BPlusTreeNode*));
+
+        // Read the 'next' pointer for internal nodes
+        bool hasNext;
+        fread(&hasNext, sizeof(bool), 1, file);
+
+        // Recursively deserialize the children of the internal node
         for (int i = 0; i <= node->numKeys; i++) {
             node->children[i] = deserializeNode(file, maxKeys);
+        }
+
+        // Recursively deserialize the 'next' internal node
+        if (hasNext) {
+            node->next = deserializeNode(file, maxKeys);  // Recursively deserialize the next internal node
+        } else {
+            node->next = NULL;  // No next internal node
         }
     }
 
