@@ -1,46 +1,7 @@
 #include "storage.h"
 #include "bptree_iterative.h"
 #include "bptree_bulk_loading.h"
-int compare_records(const void *a, const void *b) {
-    const NBA_Record *rec_a = (const NBA_Record *)a;
-    const NBA_Record *rec_b = (const NBA_Record *)b;
-    return (rec_a->fg_pct_home > rec_b->fg_pct_home) - (rec_a->fg_pct_home < rec_b->fg_pct_home);
-}
 
-void read_data_from_file_with_sorting(const char *filename, NBA_Record *records, int *num_records) {
-    FILE *file = fopen(filename, "r");
-    if (!file) {
-        perror("Unable to open file");
-        exit(EXIT_FAILURE);
-    }
-
-    char line[256];
-    fgets(line, sizeof(line), file);  // Skip header line, assuming the first line is a header
-
-    int i = 0;
-    int record_count_in_range = 0; 
-    while (fgets(line, sizeof(line), file)) {
-        sscanf(line, "%10s %d %d %f %f %f %hd %hd %hd",
-               records[i].game_date_est,
-               &records[i].team_id_home,
-               &records[i].pts_home,
-               &records[i].fg_pct_home,
-               &records[i].ft_pct_home,
-               &records[i].fg3_pct_home,
-               &records[i].ast_home,
-               &records[i].reb_home,
-               &records[i].home_team_wins);
-        /*/if (records[i].fg_pct_home >= 0.500 && records[i].fg_pct_home <= 0.800) {
-            record_count_in_range++;
-        }/*/
-        i++;
-    }
-    *num_records = i;
-
-    qsort(records, *num_records, sizeof(NBA_Record), compare_records);
-    //printf("Number of records within the range [0.500, 0.800]: %d\n", record_count_in_range);
-    fclose(file);
-}
 void balanceLeafNodes(BPlusTreeNode **leaves, int leafCount, int minKeys, int maxKeys) {
     for (int i = 0; i < leafCount - 1; i++) {
         // Check if the next leaf needs keys
@@ -50,7 +11,7 @@ void balanceLeafNodes(BPlusTreeNode **leaves, int leafCount, int minKeys, int ma
             void* dataToTransfer = leaves[i]->data[leaves[i]->numKeys - 1];
             leaves[i]->numKeys--;
 
-            // Find the insertion point in the next leaf
+            // Find the insertion point in the next leaf while making space 
             int insertionPoint = leaves[i + 1]->numKeys;
             while (insertionPoint > 0 && leaves[i + 1]->keys[insertionPoint - 1] > keyToTransfer) {
                 leaves[i + 1]->keys[insertionPoint] = leaves[i + 1]->keys[insertionPoint - 1];
@@ -66,8 +27,6 @@ void balanceLeafNodes(BPlusTreeNode **leaves, int leafCount, int minKeys, int ma
     }
 }
 void adjustInternalNodes(BPlusTreeNode **nodes, int nodeCount, int minKeys, int maxKeys) {
-    printf("\n--- Starting adjustInternalNodes ---\n");
-
     // Loop through internal nodes and adjust them
     for (int i = nodeCount - 1; i > 0; i--) {
         BPlusTreeNode *current = nodes[i];
@@ -76,6 +35,7 @@ void adjustInternalNodes(BPlusTreeNode **nodes, int nodeCount, int minKeys, int 
         while (current->numKeys < minKeys && previous->numKeys > minKeys) {
 
             // Transfer the smallest key of the **next child** to the current node
+            // moves all key and children, e.g. index0 -> index1, index1 ->index2 ....
             memmove(&current->keys[1], &current->keys[0], current->numKeys * sizeof(float));
             memmove(&current->children[1], &current->children[0], (current->numKeys + 1) * sizeof(BPlusTreeNode*));
 
@@ -200,28 +160,18 @@ void bulkLoadBPlusTree(BPlusTree* tree, float* keys, void** data, int numRecords
 
 
 BPlusTreeNode* createNode1(bool isLeaf,int MAX_KEYS) {
-    BPlusTreeNode* node = (BPlusTreeNode*) malloc(sizeof(BPlusTreeNode));
-    if (!node) {
-        return NULL;
-    }
-    node->keys = (float*) malloc(MAX_KEYS * sizeof(float));
-    node->data = malloc(MAX_KEYS * sizeof(void*));
-    node->children = isLeaf ? NULL : (BPlusTreeNode**) malloc((MAX_KEYS + 1) * sizeof(BPlusTreeNode*));
-    node->numKeys = 0;
+    BPlusTreeNode *node = (BPlusTreeNode*)malloc(sizeof(BPlusTreeNode));
     node->isLeaf = isLeaf;
+    node->keys = (float*)malloc((MAX_KEYS) * sizeof(float));
+    if (isLeaf) {
+        node->data = (void**)malloc(MAX_KEYS * sizeof(void*));  
+        node->children = NULL;  
+    } else {
+        node->children = (BPlusTreeNode**)malloc((MAX_KEYS + 1) * sizeof(BPlusTreeNode*)); 
+        node->data = NULL;
+    }
+    node->numKeys = 0;
     node->next = NULL;
-
-    if (node->keys == NULL || node->data == NULL || (!isLeaf && node->children == NULL)) {
-        free(node->keys);
-        free(node->data);
-        free(node->children);
-        free(node);
-        return NULL;
-    }
-
-    if (!isLeaf) {
-        memset(node->children, 0, (MAX_KEYS + 1) * sizeof(BPlusTreeNode*));
-    }
     return node;
 }
 
@@ -233,5 +183,97 @@ BPlusTree* createTree() {
         exit(EXIT_FAILURE);
     }
     tree->root = NULL;
+    return tree;
+}
+
+void serializeNode(FILE *file, BPlusTreeNode *node) {
+    if (!node) return;
+
+    // Write basic node information
+    fwrite(&node->numKeys, sizeof(int), 1, file);
+    fwrite(&node->isLeaf, sizeof(bool), 1, file);
+
+    // Write keys
+    fwrite(node->keys, sizeof(float), node->numKeys, file);
+
+    if (node->isLeaf) {
+        // Serialize pointers to the records (e.g., memory addresses or file offsets)
+        for (int i = 0; i < node->numKeys; i++) {
+            fwrite(&node->data[i], sizeof(void*), 1, file);  // Write pointers (or some reference)
+        }
+
+        // Serialize the 'next' pointer (if it exists)
+        bool hasNext = node->next != NULL;
+        fwrite(&hasNext, sizeof(bool), 1, file);
+        if (hasNext) {
+            serializeNode(file, node->next);  // Recursively serialize the next leaf node
+        }
+    } else {
+        // For internal nodes, recursively serialize the children
+        for (int i = 0; i <= node->numKeys; i++) {
+            serializeNode(file, node->children[i]);
+        }
+    }
+}
+
+void serializeBPlusTree(BPlusTree *tree, const char *filename) {
+    FILE *file = fopen(filename, "wb");
+    if (!file) {
+        perror("Failed to open file for writing");
+        return;
+    }
+
+    // Serialize the root node
+    serializeNode(file, tree->root);
+
+    fclose(file);
+}
+BPlusTreeNode* deserializeNode(FILE *file, int maxKeys) {
+    BPlusTreeNode *node = (BPlusTreeNode*) malloc(sizeof(BPlusTreeNode));
+    if (!node) return NULL;
+
+    // Read basic node information
+    fread(&node->numKeys, sizeof(int), 1, file);
+    fread(&node->isLeaf, sizeof(bool), 1, file);
+
+    // Allocate memory for keys
+    node->keys = (float*) malloc(maxKeys * sizeof(float));
+    fread(node->keys, sizeof(float), node->numKeys, file);
+
+    if (node->isLeaf) {
+        // Allocate memory for pointers to the records (not the actual records)
+        node->data = malloc(maxKeys * sizeof(void*));
+        fread(node->data, sizeof(void*), node->numKeys, file);  // Read the pointers (or references)
+
+        // Deserialize the 'next' pointer
+        bool hasNext;
+        fread(&hasNext, sizeof(bool), 1, file);
+        if (hasNext) {
+            node->next = deserializeNode(file, maxKeys);  // Recursively deserialize the next leaf node
+        } else {
+            node->next = NULL;  // No next leaf node
+        }
+    } else {
+        // For internal nodes, recursively deserialize the children
+        node->children = (BPlusTreeNode**) malloc((maxKeys + 1) * sizeof(BPlusTreeNode*));
+        for (int i = 0; i <= node->numKeys; i++) {
+            node->children[i] = deserializeNode(file, maxKeys);
+        }
+    }
+
+    return node;
+}
+
+BPlusTree* deserializeBPlusTree(const char *filename, int maxKeys) {
+    FILE *file = fopen(filename, "rb");
+    if (!file) {
+        perror("Failed to open file for reading");
+        return NULL;
+    }
+
+    BPlusTree *tree = (BPlusTree*) malloc(sizeof(BPlusTree));
+    tree->root = deserializeNode(file, maxKeys);
+
+    fclose(file);
     return tree;
 }

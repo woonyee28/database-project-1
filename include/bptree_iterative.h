@@ -9,7 +9,7 @@
 #include <math.h> 
 
 // N is the number of keys in a BPlusTreeNode
-#define N 340
+#define N 337
 
 typedef struct BPlusTreeNode {
     float *keys;   
@@ -35,5 +35,4 @@ int countNodes(BPlusTreeNode *node);
 int treeHeight(BPlusTreeNode *node);  
 void printRootKeys(BPlusTree *tree);  
 void bruteForceScan(NBA_Record *records, int num_records, float min, float max, int block_size);
-
 #endif
