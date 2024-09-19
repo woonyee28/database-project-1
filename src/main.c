@@ -48,6 +48,40 @@ int main() {
     BPlusTree *tree_bulk = NULL;
     task2_build_bptrees(block_size, records, num_records, &tree_iterative, &tree_bulk);
 
+    // Serialize both trees after building
+    printf("\n=== Serializing B+ Trees ===\n");
+    printf("Serializing Iterative B+ Tree to %s...\n", BPTREE_ITERATIVE_FILE);
+    serializeBPlusTree(tree_iterative, BPTREE_ITERATIVE_FILE);
+    printf("Iterative B+ Tree serialized successfully.\n");
+
+    printf("Serializing Bulk-Loaded B+ Tree to %s...\n", BPTREE_BULK_FILE);
+    serializeBPlusTree(tree_bulk, BPTREE_BULK_FILE);
+    printf("Bulk-Loaded B+ Tree serialized successfully.\n");
+
+    // Free the original trees to demonstrate deserialization
+    freeBPlusTree(tree_iterative);
+    freeBPlusTree(tree_bulk);
+    tree_iterative = NULL;
+    tree_bulk = NULL;
+
+    // Deserialize both trees before Task 3
+    printf("\n=== Deserializing B+ Trees ===\n");
+    printf("Deserializing Iterative B+ Tree from %s...\n", BPTREE_ITERATIVE_FILE);
+    tree_iterative = deserializeBPlusTree(BPTREE_ITERATIVE_FILE, N);
+    if (tree_iterative == NULL) {
+        fprintf(stderr, "Failed to deserialize Iterative B+ Tree from %s.\n", BPTREE_ITERATIVE_FILE);
+        exit(EXIT_FAILURE);
+    }
+    printf("Iterative B+ Tree deserialized successfully.\n");
+
+    printf("Deserializing Bulk-Loaded B+ Tree from %s...\n", BPTREE_BULK_FILE);
+    tree_bulk = deserializeBPlusTree(BPTREE_BULK_FILE, N);
+    if (tree_bulk == NULL) {
+        fprintf(stderr, "Failed to deserialize Bulk-Loaded B+ Tree from %s.\n", BPTREE_BULK_FILE);
+        exit(EXIT_FAILURE);
+    }
+    printf("Bulk-Loaded B+ Tree deserialized successfully.\n");
+
     // Task 3: Search Operations
     printf("\n=== Task 3: Search Operations ===\n");
     task3_search(tree_iterative, tree_bulk, records, num_records, block_size);
@@ -143,6 +177,8 @@ void task2_build_bptrees(int block_size, NBA_Record *records, int num_records, B
     NBA_Record *binary_records = NULL;
     int binary_num_records = 0;
     read_data_from_binary_file(BINARY_DATA_FILE, &binary_records, &binary_num_records, block_size);
+    
+    // Sort records based on fg_pct_home for bulk loading
     qsort(binary_records, binary_num_records, sizeof(NBA_Record), compare_records);
     printf("Total records loaded from binary file: %d\n", binary_num_records);
 
@@ -150,6 +186,10 @@ void task2_build_bptrees(int block_size, NBA_Record *records, int num_records, B
     // Build Iterative B+ Tree
     // ======================
     printf("\nBuilding Iterative B+ Tree on FG_PCT_home...\n");
+    
+    // Capture start time
+    clock_t start_iterative = clock();
+    
     *tree_iterative = createBPlusTree();
     if (*tree_iterative == NULL) {
         fprintf(stderr, "Failed to create Iterative B+ Tree.\n");
@@ -161,21 +201,32 @@ void task2_build_bptrees(int block_size, NBA_Record *records, int num_records, B
         insert(*tree_iterative, binary_records[i].fg_pct_home, &binary_records[i]);
     }
     printf("Iterative B+ Tree built successfully.\n");
-
+    
+    // Capture end time
+    clock_t end_iterative = clock();
+    
+    // Calculate elapsed time in seconds
+    double time_iterative = ((double)(end_iterative - start_iterative)) / CLOCKS_PER_SEC;
+    
     // Report Iterative B+ Tree Statistics
     printf("\n--- Iterative B+ Tree Statistics ---\n");
-    printf("Parameter n (max keys per node): %d\n", N);
+    printf("Parameter N (max keys per node): %d\n", N);
     int total_nodes_iterative = countNodes((*tree_iterative)->root);
     printf("Number of nodes in Iterative B+ Tree: %d\n", total_nodes_iterative);
     int height_iterative = treeHeight((*tree_iterative)->root);
     printf("Number of levels in Iterative B+ Tree: %d\n", height_iterative);
     printf("Keys in the root node of Iterative B+ Tree: ");
     printRootKeys(*tree_iterative);
+    
+    // Print Iterative Build Time
+    printf("Time taken to build Iterative B+ Tree: %.6f seconds\n", time_iterative);
 
     // ======================
     // Build Bulk-Loaded B+ Tree
     // ======================
     printf("\nBuilding Bulk-Loaded B+ Tree on FG_PCT_home...\n");
+    
+    // Allocate and populate keys and data pointers arrays
     float *keys = (float *)malloc(binary_num_records * sizeof(float));
     void **data_ptrs = (void **)malloc(binary_num_records * sizeof(void *));
     if (keys == NULL || data_ptrs == NULL) {
@@ -185,9 +236,12 @@ void task2_build_bptrees(int block_size, NBA_Record *records, int num_records, B
 
     for (int i = 0; i < binary_num_records; i++) {
         keys[i] = binary_records[i].fg_pct_home;
-        data_ptrs[i] = &binary_records[i];
+        data_ptrs[i] = (void*)&binary_records[i];
     }
 
+    // Capture start time for bulk loading
+    clock_t start_bulk = clock();
+    
     *tree_bulk = createBPlusTree();
     if (*tree_bulk == NULL) {
         fprintf(stderr, "Failed to create Bulk-Loaded B+ Tree.\n");
@@ -196,18 +250,36 @@ void task2_build_bptrees(int block_size, NBA_Record *records, int num_records, B
         exit(EXIT_FAILURE);
     }
 
-    bulkLoadBPlusTree(*tree_bulk, keys, data_ptrs, binary_num_records, N); // N is defined as 337 in bptree_iterative.h
+    bulkLoadBPlusTree(*tree_bulk, keys, data_ptrs, binary_num_records, N); // N is defined as 337
     printf("Bulk-Loaded B+ Tree built successfully.\n");
+
+    // Capture end time for bulk loading
+    clock_t end_bulk = clock();
+
+    // Calculate elapsed time in seconds
+    double time_bulk = ((double)(end_bulk - start_bulk)) / CLOCKS_PER_SEC;
 
     // Report Bulk-Loaded B+ Tree Statistics
     printf("\n--- Bulk-Loaded B+ Tree Statistics ---\n");
-    printf("Parameter n (max keys per node): %d\n", N);
+    printf("Parameter N (max keys per node): %d\n", N);
     int total_nodes_bulk = countNodes((*tree_bulk)->root);
     printf("Number of nodes in Bulk-Loaded B+ Tree: %d\n", total_nodes_bulk);
     int height_bulk = treeHeight((*tree_bulk)->root);
     printf("Number of levels in Bulk-Loaded B+ Tree: %d\n", height_bulk);
     printf("Keys in the root node of Bulk-Loaded B+ Tree: ");
     printRootKeys(*tree_bulk);
+    
+    // Print Bulk-Loaded Build Time
+    printf("Time taken to build Bulk-Loaded B+ Tree: %.6f seconds\n", time_bulk);
+
+    // Calculate and print the speedup
+    if (time_bulk > 0.0) {
+        double speedup = time_iterative / time_bulk;
+        printf("Speedup (Iterative / Bulk): %.2f\n", speedup);
+    } else {
+        printf("Bulk-Loaded B+ Tree build time too small to calculate speedup.\n");
+    }
+
 }
 
 /**
