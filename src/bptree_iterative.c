@@ -243,3 +243,28 @@ void bruteForceScan(NBA_Record *records, int num_records, float min, float max, 
     printf("Brute-force scan time: %lf seconds\n", time_taken);
 }
 
+// Function to recursively free B+ Tree nodes
+void freeBPlusTreeNode(BPlusTreeNode *node) {
+    if (node == NULL) return;
+
+    if (!node->isLeaf) {
+        for (int i = 0; i <= node->numKeys; i++) {
+            freeBPlusTreeNode(node->children[i]);
+        }
+        free(node->children);
+    }
+
+    if (node->isLeaf) {
+        free(node->data);
+    }
+
+    free(node->keys);
+    free(node);
+}
+
+// Function to free the entire B+ Tree
+void freeBPlusTree(BPlusTree *tree) {
+    if (tree == NULL) return;
+    freeBPlusTreeNode(tree->root);
+    free(tree);
+}

@@ -1,3 +1,9 @@
+## To Do - 19 September (WY):
+1. Merge two method in main.c
+2. Add time for tree constructions
+3. Add images to report 
+4. Save index on the disk - using Json maybe
+
 ## Bulk insertion -- Bottom up approach. 
 Fill the leaf layer first, only split node when max key reached. On last node, if number of keys < Min_Key, this node will take from the previous node. Recursively Construct the next layer based on the leaf layer, until the root layer.
 run code:

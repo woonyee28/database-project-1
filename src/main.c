@@ -1,235 +1,243 @@
+// main.c
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
+#include <stdbool.h>
+#include <string.h>
+#include <time.h>
 
+#ifdef _WIN32
+    #include <windows.h>
+#else
+    #include <unistd.h>
+#endif
 
-#include <windows.h>  
 #include "storage.h"
 #include "bptree_iterative.h"
 #include "bptree_bulk_loading.h"
 
-#define MIN(a,b) (((a)<(b))?(a):(b))
-void printNBARecord(NBA_Record *record) {
-    printf("Game Date: %s\n", record->game_date_est);
-    printf("Team ID (Home): %d\n", record->team_id_home);
-    printf("Points (Home): %d\n", record->pts_home);
-    printf("Field Goal %% (Home): %.3f\n", record->fg_pct_home);
-    printf("Free Throw %% (Home): %.3f\n", record->ft_pct_home);
-    printf("3-Point %% (Home): %.3f\n", record->fg3_pct_home);
-    printf("Assists (Home): %d\n", record->ast_home);
-    printf("Rebounds (Home): %d\n", record->reb_home);
-    printf("Home Team Wins: %d\n", record->home_team_wins);
-    printf("----\n");
+// Define constants for file paths
+#define TEXT_DATA_FILE "games.txt"
+#define BINARY_DATA_FILE "nba_data.bin"
+#define BPTREE_ITERATIVE_FILE "BulkTree_Iterative.bin"
+#define BPTREE_BULK_FILE "BulkTree_Bulk.bin"
+
+// Define maximum number of records (adjust as needed)
+#define MAX_RECORDS 27000
+
+// Function Prototypes
+void task1_store_data(int block_size, NBA_Record **records, int *num_records);
+void task2_build_bptrees(int block_size, NBA_Record *records, int num_records, BPlusTree **tree_iterative, BPlusTree **tree_bulk);
+void task3_search(BPlusTree *tree_iterative, BPlusTree *tree_bulk, NBA_Record *records, int num_records, int block_size);
+long get_block_size(void); // Prototype for get_block_size
+int compare_records(const void *a, const void *b);
+
+int main() {
+    // Task 1: Storage Component
+    printf("=== Task 1: Storage Component ===\n");
+    long block_size = get_block_size();
+    printf("Block size: %ld bytes\n\n", block_size);
+
+    NBA_Record *records = NULL;
+    int num_records = 0;
+    task1_store_data(block_size, &records, &num_records);
+
+    // Task 2: Indexing Component
+    printf("\n=== Task 2: Indexing Component ===\n");
+    BPlusTree *tree_iterative = NULL;
+    BPlusTree *tree_bulk = NULL;
+    task2_build_bptrees(block_size, records, num_records, &tree_iterative, &tree_bulk);
+
+    // Task 3: Search Operations
+    printf("\n=== Task 3: Search Operations ===\n");
+    task3_search(tree_iterative, tree_bulk, records, num_records, block_size);
+
+    // Cleanup
+    free(records);
+    freeBPlusTree(tree_iterative);
+    freeBPlusTree(tree_bulk);
+
+    return 0;
 }
+
+/**
+ * @brief Retrieves the system's page size (block size).
+ * 
+ * This function uses platform-specific methods to obtain the block size.
+ * 
+ * @return long The block size in bytes.
+ */
+long get_block_size(void) {
+    long block_size = 0;
+
+    #ifdef _WIN32
+        SYSTEM_INFO si;
+        GetSystemInfo(&si);
+        block_size = si.dwPageSize;
+    #elif defined(__linux__) || defined(__unix__) || defined(__APPLE__)
+        long res = sysconf(_SC_PAGESIZE);
+        if (res == -1) {
+            perror("Failed to get block size");
+            exit(EXIT_FAILURE);
+        }
+        block_size = res;
+    #else
+        fprintf(stderr, "Unsupported operating system.\n");
+        exit(EXIT_FAILURE);
+    #endif
+
+    return block_size;
+}
+
 int compare_records(const void *a, const void *b) {
     const NBA_Record *rec_a = (const NBA_Record *)a;
     const NBA_Record *rec_b = (const NBA_Record *)b;
     return (rec_a->fg_pct_home > rec_b->fg_pct_home) - (rec_a->fg_pct_home < rec_b->fg_pct_home);
 }
-bool verifyBPlusTree(BPlusTreeNode *root, int minKeys, int maxKeys, BPlusTree *tree) {
-    if (!root) return true;
 
-    // For the root node, the number of keys can be from 1 to MAX_KEYS
-    if (root == tree->root) {
-        if (root->numKeys < 1 || root->numKeys > maxKeys) {
-            printf("Number of Keys Incorrect in Root! Node has %d keys, expected between %d and %d\n", root->numKeys, 1, maxKeys);
-            return false;
-        }
-    } else if (!root->isLeaf) {
-        // For internal nodes (non-root)
-        if (root->numKeys < minKeys || root->numKeys > maxKeys) {
-            printf("Number of Keys Incorrect! Node has %d keys, expected between %d and %d\n", root->numKeys, minKeys, maxKeys);
-            return false;
-        }
-    }
-
-    // Verify that keys are sorted
-    for (int i = 0; i < root->numKeys - 1; i++) {
-        if (root->keys[i] > root->keys[i + 1]) {
-            printf("Key not sorted! Keys: %.2f >= %.2f\n", root->keys[i], root->keys[i + 1]);
-            return false;
-        }
-    }
-
-    // Recursively verify children
-    if (!root->isLeaf) {
-        for (int i = 0; i <= root->numKeys; i++) {
-            if (!verifyBPlusTree(root->children[i], minKeys, maxKeys,tree)) return false;
-        }
-    }
-
-    return true;
-}
-
-void printTreeDetailed(BPlusTreeNode *node, int level) {
-    if (node == NULL) return;
-
-    // Check if the node is a leaf
-    if (node->isLeaf) {
-        // Print only the first and last key for leaf nodes
-        if (node->numKeys > 0) {
-            printf("Level %d, Leaf Keys: %.3f ... %.3f\n", level, node->keys[0], node->keys[node->numKeys - 1]);
-        }
-    } else {
-        // For internal nodes, print all keys
-        printf("Level %d, Internal Keys:", level);
-        for (int i = 0; i < node->numKeys; i++) {
-            printf(" %.3f", node->keys[i]);
-        }
-        printf("\n");
-        // Recursively print child nodes
-        for (int i = 0; i <= node->numKeys; i++) {
-            printTreeDetailed(node->children[i], level + 1);
-        }
-    }
-}
-
-int main() {
-    SYSTEM_INFO si;
-    GetSystemInfo(&si);
-    long block_size = si.dwPageSize;
-    if (block_size == -1) {
-        perror("Failed to get block size");
-        return 1;
-    }
-    
-    printf("Block size: %ld bytes\n", block_size);
-    int max_records = 27000;  
-    NBA_Record *records = (NBA_Record *)malloc(max_records * sizeof(NBA_Record));
-    if (records == NULL) {
-        perror("Failed to allocate memory");
-        return 1;
-    }
-
-    int num_records = 0;
-    read_data_from_binary_file("nba_data.bin", &records, &num_records, block_size);
-    qsort(records, num_records, sizeof(NBA_Record), compare_records);
-    int node_size = sizeof(BPlusTreeNode);
-
-    /*        
-    This line calculates the Global N value dynamically based on block size and compiler. 
-    For 32-bit and 4KB-block, records_per_block = 508
-    For 64-bit and 4KB-block, records_per_block = 337
-    int records_per_block = MIN((block_size - node_size) / (sizeof(float) + sizeof(BPlusTreeNode*)),   // Leaf: max n of dataPtr/key pair
-                                (block_size - node_size - sizeof(BPlusTreeNode*)) / (sizeof(float) + sizeof(BPlusTreeNode*))); // Internal: max n of(n+1 * child pointer)/n*key pair
-    */
-    // Fixing to 337 first
-    int records_per_block = 337;
-    //int num_blocks = (num_records + records_per_block - 1) / records_per_block;
-    /*
-    BPlusTree* tree = createTree();
-    float* keys = (float*) malloc(num_records * sizeof(float));
-    void** data = (void**) malloc(num_records * sizeof(void*));
-    if (!keys || !data) {
-        perror("Failed to allocate memory for keys/data arrays");
+/**
+ * @brief Task 1: Read data from text file and store it into a binary file.
+ * 
+ * @param block_size The size of a block in bytes.
+ * @param records Pointer to the NBA_Record array.
+ * @param num_records Pointer to the number of records.
+ */
+void task1_store_data(int block_size, NBA_Record **records, int *num_records) {
+    // Read data from text file
+    printf("Reading data from %s...\n", TEXT_DATA_FILE);
+    *records = (NBA_Record *)malloc(MAX_RECORDS * sizeof(NBA_Record));
+    if (*records == NULL) {
+        perror("Failed to allocate memory for records");
         exit(EXIT_FAILURE);
     }
-    for (int i = 0; i < num_records; i++) {
-        keys[i] = records[i].fg_pct_home;  
-        data[i] = &records[i];           
-    }
-    bulkLoadBPlusTree(tree, keys, data, num_records, records_per_block); 
-    */
-   
-    int maxKeys = records_per_block;
-    int minKeys = maxKeys/2;
-    
-    //Deserialising from saved tree
-    //printf("loading Tree ... \n");
-    BPlusTree *tree = deserializeBPlusTree("BulkTree.bin", records_per_block);
+    read_data_from_file(TEXT_DATA_FILE, *records, num_records);
+    printf("Total records read: %d\n", *num_records);
 
-    // Print the tree for visual verification
-    //printTreeDetailed(tree->root, 0);
+    // Store data to binary file
+    printf("Storing data to binary file %s...\n", BINARY_DATA_FILE);
+    store_data_to_disk(*records, *num_records, BINARY_DATA_FILE, block_size);
+    printf("Data stored successfully.\n");
 
-    //save the tree to a file
-    //serializeBPlusTree(tree, "BulkTree.bin");
+    // Report Statistics
+    printf("\n--- Storage Statistics ---\n");
+    printf("Size of a record: %lu bytes\n", sizeof(NBA_Record));
+    printf("Number of records: %d\n", *num_records);
+    int records_per_block = block_size / sizeof(NBA_Record);
+    int num_blocks = (*num_records + records_per_block - 1) / records_per_block;
+    printf("Number of records per block: %d\n", records_per_block);
+    printf("Total number of blocks: %d\n", num_blocks);
+}
 
-    // Additional prints for analysis
-    printf("Size of a node structure: %d bytes\n", node_size);
-    printf("Number of records: %d\n", num_records);
-    //printf("Number of blocks required: %d\n", num_blocks);
-    printf("\nB+ Tree Statistics:\n");
-    printf("1. N of B+ Tree: %d\n", records_per_block);
-    printf("2. Number of nodes: %d\n", countNodes(tree->root)); 
-    printf("3. Number of levels: %d\n", treeHeight(tree->root)); 
-    printf("4. Content of the root node: ");
-    printRootKeys(tree);  
-    searchRange(tree, 0.500, 0.800);
-    printf("\nBrute Force Linear Scan Method: \n");
-    bruteForceScan(records, num_records, 0.500, 0.800, block_size);
+/**
+ * @brief Task 2: Build both Iterative and Bulk-Loaded B+ Trees and report statistics.
+ * 
+ * @param block_size The size of a block in bytes.
+ * @param records The NBA_Record array.
+ * @param num_records The number of records.
+ * @param tree_iterative Pointer to the Iterative BPlusTree structure.
+ * @param tree_bulk Pointer to the Bulk-Loaded BPlusTree structure.
+ */
+void task2_build_bptrees(int block_size, NBA_Record *records, int num_records, BPlusTree **tree_iterative, BPlusTree **tree_bulk) {
+    // Read data from binary file
+    printf("Reading data from binary file %s...\n", BINARY_DATA_FILE);
+    NBA_Record *binary_records = NULL;
+    int binary_num_records = 0;
+    read_data_from_binary_file(BINARY_DATA_FILE, &binary_records, &binary_num_records, block_size);
+    qsort(binary_records, binary_num_records, sizeof(NBA_Record), compare_records);
+    printf("Total records loaded from binary file: %d\n", binary_num_records);
 
-    // Free resources
-    //free(keys);
-    //free(data);
-    free(records);
-
-    return 0;
-    /*
-    printf("\n---------------------------------Data Verification---------------------------------\n");
-    printf("Verifying the first 5 records after sorting:\n");
-    for (int i = 0; i < 200 && i < num_records; i++) {
-        printf("%d - Date: %s, Team ID: %d, Points: %d, FG%%: %.3f\n",
-               i + 1,
-               records[i].game_date_est,
-               records[i].team_id_home,
-               records[i].pts_home,
-               records[i].fg_pct_home);
-    }*/
-
-    
-    /* read_data_from_file("games.txt", records, &num_records);
-
-    store_data_to_disk(records, num_records, "nba_data.bin", block_size);
-
-    int record_size = sizeof(NBA_Record);
-    int records_per_block = block_size / record_size;
-    int num_blocks = (num_records + records_per_block - 1) / records_per_block;
-
-    printf("\n---------------------------------Task 1---------------------------------\n");
-
-    printf("Size of a record: %d bytes\n", record_size);
-    printf("Number of records: %d\n", num_records);
-    printf("Records per block: %d\n", records_per_block);
-    printf("Number of blocks required: %d\n", num_blocks);
-
-    free(records);
-
-    NBA_Record *records_v2 = (NBA_Record *)malloc(max_records * sizeof(NBA_Record));
-
-    read_data_from_binary_file("nba_data.bin", &records_v2, &num_records, block_size);
-
-    // Print the 120rd record (index 119) to verify correctness
-    // printNBARecord(&records_v2[120]);
-
-    printf("\n---------------------------------Task 2---------------------------------\n");
-
-    BPlusTree *bptree = createBPlusTree();
-
-    // Print the size of BPlusTreeNode
-    printf("\n\nSize of a BPlusTreeNode: %lu bytes\n", (unsigned long)sizeof(BPlusTreeNode));
-
-    for (int i = 0; i < num_records; i++) {
-        insert(bptree, records_v2[i].fg_pct_home, &records_v2[i]);  
+    // ======================
+    // Build Iterative B+ Tree
+    // ======================
+    printf("\nBuilding Iterative B+ Tree on FG_PCT_home...\n");
+    *tree_iterative = createBPlusTree();
+    if (*tree_iterative == NULL) {
+        fprintf(stderr, "Failed to create Iterative B+ Tree.\n");
+        exit(EXIT_FAILURE);
     }
 
-    printf("\nB+ Tree Statistics:\n");
-    printf("1. N of B+ Tree: %d\n", N);
-    printf("2. Number of nodes: %d\n", countNodes(bptree->root)); 
-    printf("3. Number of levels: %d\n", treeHeight(bptree->root)); 
-    printf("4. Content of the root node: ");
-    printRootKeys(bptree);  
+    // Insert records one by one
+    for (int i = 0; i < binary_num_records; i++) {
+        insert(*tree_iterative, binary_records[i].fg_pct_home, &binary_records[i]);
+    }
+    printf("Iterative B+ Tree built successfully.\n");
 
-    printf("\n---------------------------------Task 3 (Iterative Method) ---------------------------------\n");
+    // Report Iterative B+ Tree Statistics
+    printf("\n--- Iterative B+ Tree Statistics ---\n");
+    printf("Parameter n (max keys per node): %d\n", N);
+    int total_nodes_iterative = countNodes((*tree_iterative)->root);
+    printf("Number of nodes in Iterative B+ Tree: %d\n", total_nodes_iterative);
+    int height_iterative = treeHeight((*tree_iterative)->root);
+    printf("Number of levels in Iterative B+ Tree: %d\n", height_iterative);
+    printf("Keys in the root node of Iterative B+ Tree: ");
+    printRootKeys(*tree_iterative);
 
-    printf("\nQuerying B+ Tree for FG_PCT_home between 0.5 and 0.8:\n");
+    // ======================
+    // Build Bulk-Loaded B+ Tree
+    // ======================
+    printf("\nBuilding Bulk-Loaded B+ Tree on FG_PCT_home...\n");
+    float *keys = (float *)malloc(binary_num_records * sizeof(float));
+    void **data_ptrs = (void **)malloc(binary_num_records * sizeof(void *));
+    if (keys == NULL || data_ptrs == NULL) {
+        perror("Failed to allocate memory for keys/data pointers");
+        exit(EXIT_FAILURE);
+    }
 
-    searchRange(bptree, 0.500, 0.800);  
-    printf("\n");
+    for (int i = 0; i < binary_num_records; i++) {
+        keys[i] = binary_records[i].fg_pct_home;
+        data_ptrs[i] = &binary_records[i];
+    }
 
-    printf("\nBrute Force Linear Scan Method: \n");
+    *tree_bulk = createBPlusTree();
+    if (*tree_bulk == NULL) {
+        fprintf(stderr, "Failed to create Bulk-Loaded B+ Tree.\n");
+        free(keys);
+        free(data_ptrs);
+        exit(EXIT_FAILURE);
+    }
 
-    bruteForceScan(records_v2, num_records, 0.500, 0.800, block_size);
+    bulkLoadBPlusTree(*tree_bulk, keys, data_ptrs, binary_num_records, N); // N is defined as 337 in bptree_iterative.h
+    printf("Bulk-Loaded B+ Tree built successfully.\n");
 
-    free(records_v2); 
-    return 0;*/
+    // Report Bulk-Loaded B+ Tree Statistics
+    printf("\n--- Bulk-Loaded B+ Tree Statistics ---\n");
+    printf("Parameter n (max keys per node): %d\n", N);
+    int total_nodes_bulk = countNodes((*tree_bulk)->root);
+    printf("Number of nodes in Bulk-Loaded B+ Tree: %d\n", total_nodes_bulk);
+    int height_bulk = treeHeight((*tree_bulk)->root);
+    printf("Number of levels in Bulk-Loaded B+ Tree: %d\n", height_bulk);
+    printf("Keys in the root node of Bulk-Loaded B+ Tree: ");
+    printRootKeys(*tree_bulk);
+}
+
+/**
+ * @brief Task 3: Perform range search using both B+ trees and brute-force scan.
+ * 
+ * @param tree_iterative The Iterative BPlusTree structure.
+ * @param tree_bulk The Bulk-Loaded BPlusTree structure.
+ * @param records The NBA_Record array.
+ * @param num_records The number of records.
+ * @param block_size The size of a block in bytes.
+ */
+void task3_search(BPlusTree *tree_iterative, BPlusTree *tree_bulk, NBA_Record *records, int num_records, int block_size) {
+    float min = 0.500;
+    float max = 0.800;
+
+    // ======================
+    // Search in Iterative B+ Tree
+    // ======================
+    printf("Searching for records with FG_PCT_home in range [%.2f, %.2f] using Iterative B+ Tree...\n", min, max);
+    searchRange(tree_iterative, min, max);
+
+    // ======================
+    // Search in Bulk-Loaded B+ Tree
+    // ======================
+    printf("\nSearching for records with FG_PCT_home in range [%.2f, %.2f] using Bulk-Loaded B+ Tree...\n", min, max);
+    searchRange(tree_bulk, min, max);
+
+    // ======================
+    // Brute-Force Linear Scan
+    // ======================
+    printf("\nPerforming brute-force linear scan for comparison...\n");
+    bruteForceScan(records, num_records, min, max, block_size);
 }
