@@ -1,3 +1,30 @@
++----------------+          +---------------------+          +---------------------+
+|  BPlusTree     |          |   Root Node         |          |   Child1 (Leaf)     |
+|----------------|          |---------------------|          |---------------------|
+| - root: ------>| -------> | isLeaf: false       |          | isLeaf: true        |
++----------------+          | numKeys: 2          |          | numKeys: 3          |
+                            | keys: [20.0, 40.0]  |          | keys: [10.0, 15.0]  |
+                            | children:           |          | data: [ptr1, ptr2]  |
+                            |   Child1            |          | next: ------> Child2|
+                            |   Child2            |          +---------------------+
+                            |   Child3            |          +---------------------+
+                            +---------------------+          |   Child2 (Leaf)     |
+                                                             | isLeaf: true        |
+                                                             | numKeys: 2          |
+                                                             | keys: [20.0, 35.0]  |
+                                                             | data: [ptr3, ptr4]  |
+                                                             | next: ------> Child3|
+                                                             +---------------------+
+                                                             +---------------------+
+                                                             |   Child3 (Leaf)     |
+                                                             | isLeaf: true        |
+                                                             | numKeys: 1          |
+                                                             | keys: [40.0, 45.0]  |
+                                                             | data: [ptr5, ptr6]  |
+                                                             | next: NULL          |
+                                                             +---------------------+
+
+
 ## To Do - 19 September (WY):
 1. Merge two method in main.c - Done
 2. Add time for tree constructions - Done
