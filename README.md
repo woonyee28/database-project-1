@@ -1,3 +1,4 @@
+Visualization (View in edit mode):
 +----------------+          +---------------------+          +---------------------+
 |  BPlusTree     |          |   Root Node         |          |   Child1 (Leaf)     |
 |----------------|          |---------------------|          |---------------------|
@@ -23,19 +24,19 @@
                                                              | data: [ptr5, ptr6]  |
                                                              | next: NULL          |
                                                              +---------------------+
-
-
+                                                             
+                                                             
 ## To Do - 19 September (WY):
 1. Merge two method in main.c - Done
 2. Add time for tree constructions - Done
 3. Add images to report - WIP
-4. Save index on the disk - using Json maybe 
+4. Save index on the disk - using Json maybe - Added
 
 ## Bulk insertion -- Bottom up approach. 
 Fill the leaf layer first, only split node when max key reached. On last node, if number of keys < Min_Key, this node will take from the previous node. Recursively Construct the next layer based on the leaf layer, until the root layer.
 run code:
 ```
-gcc -Iinclude src/main.c src/storage.c src/bptree_bulk_loading.c src/bptree_iterative.c -o bulk
+gcc -I include src/main.c src/storage.c src/bptree_bulk_loading.c src/bptree_iterative.c -o bulk
 ./bulk
 ```
 
