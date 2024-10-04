@@ -178,8 +178,6 @@ void task2_build_bptrees(int block_size, NBA_Record *records, int num_records, B
     int binary_num_records = 0;
     read_data_from_binary_file(BINARY_DATA_FILE, &binary_records, &binary_num_records, block_size);
     
-    // Sort records based on fg_pct_home for bulk loading
-    qsort(binary_records, binary_num_records, sizeof(NBA_Record), compare_records);
     printf("Total records loaded from binary file: %d\n", binary_num_records);
 
     // ======================
@@ -225,6 +223,8 @@ void task2_build_bptrees(int block_size, NBA_Record *records, int num_records, B
     // Build Bulk-Loaded B+ Tree
     // ======================
     printf("\nBuilding Bulk-Loaded B+ Tree on FG_PCT_home...\n");
+    // Sort records based on fg_pct_home for bulk loading
+    qsort(binary_records, binary_num_records, sizeof(NBA_Record), compare_records);
     
     // Allocate and populate keys and data pointers arrays
     float *keys = (float *)malloc(binary_num_records * sizeof(float));

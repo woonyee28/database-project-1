@@ -2,6 +2,7 @@
 #define STORAGE_H
 
 #include <stdio.h>
+#include <stdbool.h> 
 
 #pragma pack(1)  
 
@@ -14,7 +15,7 @@ typedef struct {
     float fg3_pct_home;
     short ast_home;
     short reb_home;
-    short home_team_wins;
+    bool home_team_wins;
 } NBA_Record;
 
 typedef struct {
