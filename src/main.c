@@ -224,7 +224,10 @@ void task2_build_bptrees(int block_size, NBA_Record *records, int num_records, B
     // ======================
     printf("\nBuilding Bulk-Loaded B+ Tree on FG_PCT_home...\n");
     // Sort records based on fg_pct_home for bulk loading
-    qsort(binary_records, binary_num_records, sizeof(NBA_Record), compare_records);
+    NBA_Record *bulk_records = NULL;
+    int bulk_num_records = 0;
+    read_data_from_binary_file(BINARY_DATA_FILE, &bulk_records, &bulk_num_records, block_size);
+    qsort(bulk_records, binary_num_records, sizeof(NBA_Record), compare_records);
     
     // Allocate and populate keys and data pointers arrays
     float *keys = (float *)malloc(binary_num_records * sizeof(float));
@@ -235,8 +238,8 @@ void task2_build_bptrees(int block_size, NBA_Record *records, int num_records, B
     }
 
     for (int i = 0; i < binary_num_records; i++) {
-        keys[i] = binary_records[i].fg_pct_home;
-        data_ptrs[i] = (void*)&binary_records[i];
+        keys[i] = bulk_records[i].fg_pct_home;
+        data_ptrs[i] = (void*)&bulk_records[i];
     }
 
     // Capture start time for bulk loading
